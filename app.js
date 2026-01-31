@@ -10,12 +10,105 @@ const TRACKS = {
     title: "Letter",
     subtitle: "Press play — the text will follow.",
     src: "assets/letter.mp3",
-    cues: [
-      { t: 0.00, text: "Hey love…" },
-      { t: 3.20, text: "I made this because I wanted you to have something you can keep." },
-      { t: 8.00, text: "Something you can listen to and read at the same time." },
-      { t: 13.50, text: "…" }
-    ]
+cues: [
+  { t: 0.87, text: "My dear Lorena," },
+
+  { t: 3.58, text: "I’ve been thinking a lot about you while writing this." },
+  { t: 9.01, text: "About everything you are," },
+  { t: 11.72, text: "everything you’ve been through," },
+  { t: 14.44, text: "and everything you’re still becoming." },
+
+  { t: 17.41, text: "And I want you to know something first, before anything else:" },
+  { t: 22.80, text: "I am so proud of you." },
+
+  { t: 30.95, text: "I know there were times when life felt unbearable." },
+  { t: 36.34, text: "Times when your mind told you things that weren’t true." },
+  { t: 41.51, text: "Times when getting through the day felt like a battle." },
+  { t: 48.34, text: "Times when you felt tired of fighting" },
+  { t: 51.06, text: "and didn’t know how much strength you had left." },
+
+  { t: 56.50, text: "But you’re still here." },
+  { t: 59.42, text: "And that matters more than I can ever put into words." },
+
+  { t: 65.24, text: "You chose to keep going, even when it was hard." },
+  { t: 68.09, text: "You chose to stay, even when it hurt." },
+  { t: 75.61, text: "You chose life, even when it didn’t feel easy." },
+
+  { t: 82.42, text: "That takes courage." },
+  { t: 85.08, text: "That takes strength." },
+  { t: 88.58, text: "That takes a heart that refuses to give up," },
+  { t: 94.02, text: "even when it’s exhausted." },
+
+  { t: 97.59, text: "And that’s you." },
+
+  { t: 100.30, text: "I know some days are still heavy." },
+  { t: 104.58, text: "I know sometimes your thoughts can be cruel to you." },
+  { t: 109.02, text: "I know there are moments when you doubt yourself," },
+  { t: 112.66, text: "when you feel weak," },
+  { t: 116.02, text: "when you feel like you’re not enough." },
+
+  { t: 122.66, text: "But please listen to me when I say this:" },
+
+  { t: 125.30, text: "You are stronger than those thoughts." },
+  { t: 129.67, text: "You are bigger than that pain." },
+  { t: 135.34, text: "You are worth fighting for." },
+  { t: 138.32, text: "Every single day." },
+
+  { t: 141.15, text: "Your life is precious." },
+  { t: 143.69, text: "Your smile is precious." },
+  { t: 146.24, text: "Your dreams are precious." },
+  { t: 149.07, text: "You are precious to me." },
+
+  { t: 155.09, text: "There is nothing in this world that could replace you." },
+  { t: 158.63, text: "No one else could be you." },
+  { t: 162.64, text: "No one else could mean to me what you mean." },
+  { t: 165.51, text: "My life is better because you are in it." },
+  { t: 168.38, text: "My future is brighter because you are in it." },
+
+  { t: 172.33, text: "And I need you here." },
+  { t: 175.20, text: "I want you here." },
+  { t: 178.07, text: "This world needs you here." },
+
+  { t: 184.49, text: "You don’t have to be strong alone." },
+  { t: 187.59, text: "You don’t have to carry everything by yourself." },
+
+  { t: 192.59, text: "On the days when you feel tired, I’ll be strong for you." },
+  { t: 198.37, text: "On the days when you feel lost, I’ll remind you who you are." },
+  { t: 204.24, text: "On the days when you forget your worth," },
+  { t: 206.85, text: "I’ll never forget it for you." },
+
+  { t: 213.15, text: "You are not a burden." },
+  { t: 215.93, text: "You are not weak." },
+  { t: 218.77, text: "You are not broken." },
+
+  { t: 221.68, text: "You are brave." },
+  { t: 224.21, text: "You are kind." },
+  { t: 227.53, text: "You are loved." },
+  { t: 229.56, text: "You are enough." },
+
+  { t: 231.84, text: "Every time you choose to keep going, you are winning." },
+  { t: 235.25, text: "Every time you get up after a hard day, you are winning." },
+  { t: 240.72, text: "Every time you stay, even when it’s difficult, you are winning." },
+
+  { t: 247.23, text: "And I will always be here cheering for you." },
+
+  { t: 252.36, text: "No matter what happens," },
+  { t: 255.33, text: "no matter how dark things feel sometimes," },
+  { t: 258.23, text: "please remember: you are never alone." },
+  { t: 262.23, text: "You have me. You always will." },
+  { t: 266.07, text: "My heart is with you, every step of the way." },
+
+  { t: 271.18, text: "Thank you for staying." },
+  { t: 274.03, text: "Thank you for fighting." },
+  { t: 276.87, text: "Thank you for being here." },
+  { t: 279.11, text: "Thank you for being you." },
+
+  { t: 284.29, text: "I love you more than you know." },
+  { t: 287.86, text: "And I’m so proud to walk through life with you." },
+
+  { t: 292.56, text: "Always yours," },
+  { t: 295.31, text: "[Your Name]" }
+]
   },
   poem: {
     title: "Poem",
@@ -405,4 +498,5 @@ setSliderFill(seek, 0);
 
 /* Mobile priming */
 document.addEventListener("pointerdown", () => {}, { once:true });
+
 
