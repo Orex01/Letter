@@ -21,11 +21,49 @@ const TRACKS = {
     title: "Poem",
     subtitle: "A softer, shorter piece.",
     src: "assets/poem.mp3",
-    cues: [
-      { t: 0.00, text: "You are the quiet miracle in my ordinary days," },
-      { t: 4.20, text: "the gentle gravity that pulls my scattered thoughts into one place." },
-      { t: 10.00, text: "…" }
-    ]
+cues: [
+  { t: 1.010, text: "Lorena," },
+  { t: 3.902, text: "I don’t have the right words most of the time," },
+  { t: 6.795, text: "but somehow you still make me feel" },
+  { t: 12.302, text: "like I’m saying enough." },
+
+  { t: 16.023, text: "You’re beautiful—" },
+  { t: 19.009, text: "not just in the way you look," },
+  { t: 23.534, text: "but in the way you talk to me" },
+  { t: 26.440, text: "like I actually matter," },
+  { t: 29.345, text: "like I’m worth your time" },
+  { t: 29.345, text: "even from so far away." },
+
+  { t: 32.251, text: "You’re strong too," },
+  { t: 35.049, text: "not in that fake “I’m fine” way" },
+  { t: 37.997, text: "people put on for the world," },
+  { t: 40.946, text: "but in the way you’re still here" },
+  { t: 43.894, text: "even when your mind turns against you," },
+  { t: 50.409, text: "in the way you get through heavy days" },
+  { t: 53.141, text: "and still somehow manage" },
+  { t: 55.874, text: "to be gentle with me." },
+
+  { t: 59.391, text: "I love the way you treat me," },
+  { t: 62.311, text: "the way you listen," },
+  { t: 65.228, text: "the way you turn a normal moment" },
+  { t: 69.553, text: "into something I remember later" },
+  { t: 72.563, text: "when I’m trying to sleep." },
+
+  { t: 75.634, text: "Yeah, we joke around," },
+  { t: 79.184, text: "mess around in games and calls," },
+  { t: 82.021, text: "but underneath all of that" },
+  { t: 86.766, text: "I’m honestly just really grateful" },
+  { t: 90.776, text: "that out of everyone in this world," },
+  { t: 93.391, text: "I get you on the other side of the screen." },
+
+  { t: 97.418, text: "Thank you" },
+  { t: 100.336, text: "for being this amazing person," },
+  { t: 103.039, text: "for making distance feel a little less brutal," },
+  { t: 110.480, text: "and for being the reason" },
+  { t: 113.581, text: "I look forward to tomorrow" },
+  { t: 116.216, text: "more than I did yesterday." }
+]
+
   }
 };
 
@@ -367,3 +405,4 @@ setSliderFill(seek, 0);
 
 /* Mobile priming */
 document.addEventListener("pointerdown", () => {}, { once:true });
+
