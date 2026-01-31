@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#070712" />
+  <title>For You ♡</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700&family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div class="bg" aria-hidden="true">
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+    <div class="orb orb3"></div>
+    <div class="glowRing"></div>
+    <div class="vignette"></div>
+    <div class="grain"></div>
+  </div>
+
+  <main class="wrap">
+    <!-- Password Gate -->
+    <section class="gate" id="gate">
+      <div class="card glassBorder">
+        <div class="badge">♡</div>
+        <h1>For You</h1>
+        <p class="sub">A private page. Enter the secret.</p>
+
+        <form id="gateForm" autocomplete="off">
+          <label class="field">
+            <span>Password</span>
+            <input id="password" type="password" placeholder="Enter the secret…" required />
+          </label>
+
+          <button class="btn primary" type="submit">
+            Unlock
+            <span class="btnGlow"></span>
+          </button>
+
+          <p class="hint" id="gateHint" aria-live="polite"></p>
+        </form>
+
+        <p class="tiny">If audio won’t play on phone: tap once anywhere, then press play.</p>
+      </div>
+    </section>
+
+    <!-- App -->
+    <section class="app hidden" id="app">
+      <header class="hero glassBorder">
+        <div class="heroLeft">
+          <div class="mark" aria-hidden="true"></div>
+          <div class="heroText">
+            <h2 id="pageTitle">Hi, my love.</h2>
+            <p class="sub small" id="pageSub">Choose one. Listen and read together.</p>
+          </div>
+        </div>
+
+        <button class="pillBtn" id="lockBtn" type="button" title="Lock">
+          Lock
+        </button>
+      </header>
+
+      <section class="layout">
+        <!-- Track chooser -->
+        <aside class="chooser glassBorder" aria-label="Track chooser">
+          <div class="chooserHead">
+            <h3>Pick one</h3>
+            <p class="sub small">Swipe on phone. Click on desktop.</p>
+          </div>
+
+          <div class="trackRow" role="list">
+            <button class="trackCard active" id="btnLetter" type="button" role="listitem">
+              <div class="trackTop">
+                <div class="trackIcon">✉️</div>
+                <div class="trackPills">
+                  <span class="miniPill" id="pillLetter">Selected</span>
+                </div>
+              </div>
+              <div class="trackTitle">Letter</div>
+              <div class="trackDesc">My voice and the exact words, together.</div>
+              <div class="trackCTA">
+                <span class="ctaDot"></span>
+                <span class="ctaText">Open</span>
+              </div>
+            </button>
+
+            <button class="trackCard" id="btnPoem" type="button" role="listitem">
+              <div class="trackTop">
+                <div class="trackIcon">🖋️</div>
+                <div class="trackPills">
+                  <span class="miniPill ghost" id="pillPoem">Tap</span>
+                </div>
+              </div>
+              <div class="trackTitle">Poem</div>
+              <div class="trackDesc">Shorter, softer — read while you listen.</div>
+              <div class="trackCTA">
+                <span class="ctaDot"></span>
+                <span class="ctaText">Open</span>
+              </div>
+            </button>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="modeBlock">
+            <div class="modeTitle">Text mode</div>
+            <div class="seg" role="tablist" aria-label="Text mode">
+              <button class="segBtn active" id="modeLive" type="button" role="tab" aria-selected="true">
+                Live text
+              </button>
+              <button class="segBtn" id="modeFull" type="button" role="tab" aria-selected="false">
+                Full text
+              </button>
+            </div>
+
+            <p class="tiny">Live text highlights what’s being read. Tap a line to jump.</p>
+          </div>
+        </aside>
+
+        <!-- Player + text -->
+        <section class="main glassBorder" aria-label="Player and text">
+          <div class="mainHead">
+            <div>
+              <h3 id="trackTitle">Letter</h3>
+              <p class="sub small" id="trackSub">Press play — the text will follow.</p>
+            </div>
+
+            <div class="rightTools">
+              <span class="statusPill" id="miniStatus">Ready</span>
+              <button class="pillBtn" id="rateBtn" type="button" title="Playback speed">1.0×</button>
+            </div>
+          </div>
+
+          <!-- Custom player -->
+          <div class="player glassSoft" id="player">
+            <audio id="audio" preload="metadata"></audio>
+
+            <div class="controlsRow">
+              <button class="playBtn" id="playBtn" type="button" aria-label="Play/Pause">
+                <span class="playRing" aria-hidden="true"></span>
+                <span id="playIcon" class="playIcon">▶</span>
+              </button>
+
+              <div class="timeline">
+                <div class="timeRow">
+                  <span class="time" id="curTime">0:00</span>
+                  <span class="time dim" id="durTime">0:00</span>
+                </div>
+
+                <input
+                  class="range seek"
+                  id="seek"
+                  type="range"
+                  min="0"
+                  max="1000"
+                  value="0"
+                  step="1"
+                  aria-label="Seek"
+                />
+
+                <div class="miniControls">
+                  <button class="chipBtn" id="rewind" type="button" title="Back 10s">↺ 10</button>
+                  <button class="chipBtn" id="forward" type="button" title="Forward 10s">10 ↻</button>
+
+                  <div class="volBox" title="Volume">
+                    <span class="volIcon" aria-hidden="true">🔊</span>
+                    <input class="range vol" id="vol" type="range" min="0" max="1" value="1" step="0.01" aria-label="Volume" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Text -->
+          <div class="lyricsWrap glassSoft" id="lyricsWrap" aria-label="Text">
+            <div class="lyrics" id="lyrics"></div>
+          </div>
+
+          <footer class="foot">
+            <span class="tiny">Made by Oren</span>
+          </footer>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
