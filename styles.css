@@ -664,6 +664,14 @@ h3{
   margin-bottom: 4px;
 }
 
+.lyrics.fullMode .line{
+  cursor: default;
+}
+.lyrics.fullMode .line:hover{
+  background: transparent;
+}
+
+
 .foot{
   display:flex;
   justify-content:space-between;
@@ -677,3 +685,4 @@ h3{
   .playBtn{ width: 62px; height: 62px; }
   .range.vol{ width: 96px; }
 }
+
