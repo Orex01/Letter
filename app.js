@@ -125,7 +125,7 @@ const TRACKS = {
       { t: 19.009, text: "not just in the way you look," },
       { t: 23.534, text: "but in the way you talk to me" },
       { t: 26.44, text: "like I actually matter," },
-      { t: 29.345, text: "like I’m worth your time even from so far away." }, // merged duplicates
+      { t: 29.345, text: "like I’m worth your time even from so far away." },
 
       { t: 32.251, text: "You’re strong too," },
       { t: 35.049, text: "not in that fake “I’m fine” way" },
@@ -168,6 +168,7 @@ let textMode = "live"; // "live" | "full"
 let activeIndex = -1;
 let rafId = null;
 let isSeeking = false;
+let isLoadingTrack = false;
 
 const el = (id) => document.getElementById(id);
 
@@ -247,6 +248,10 @@ function setPlayIcon(playing){
   playIcon.textContent = playing ? "❚❚" : "▶";
 }
 
+function setStatus(msg){
+  miniStatus.textContent = msg;
+}
+
 function setTrackPills(){
   const letterActive = currentKey === "letter";
   btnLetter.classList.toggle("active", letterActive);
@@ -270,11 +275,16 @@ function setTrack(key){
   activeIndex = -1;
 
   audio.pause();
+  cancelRaf();
+  isLoadingTrack = true;
+  setPlayIcon(false);
+  setStatus("Loading…");
+
+  // Reset display state before loading the new media.
   audio.src = tr.src;
+  audio.load();
   audio.currentTime = 0;
 
-  setPlayIcon(false);
-  miniStatus.textContent = "Ready";
   curTime.textContent = "0:00";
   durTime.textContent = "0:00";
 
@@ -290,6 +300,9 @@ function setTextMode(mode){
   modeFull.classList.toggle("active", mode === "full");
   modeLive.setAttribute("aria-selected", mode === "live" ? "true" : "false");
   modeFull.setAttribute("aria-selected", mode === "full" ? "true" : "false");
+
+  // Let CSS adapt visuals (timestamps, cursor, spacing, etc.)
+  lyrics.classList.toggle("fullMode", mode === "full");
   renderText();
 }
 
@@ -355,15 +368,27 @@ function renderText(){
   const arr = getCues();
   lyrics.innerHTML = "";
 
-  arr.forEach((c) => {
-    const div = document.createElement("div");
-    div.className = "line";
-    div.innerHTML = `<span class="t">${fmtTime(c.t)}</span>${escapeHtml(c.text)}`;
-    div.addEventListener("click", () => {
-      audio.currentTime = Math.max(0, c.t + 0.01);
+  if (textMode === "full"){
+    // Render a clean, readable version (no timestamps, no seeking-on-tap).
+    // We still keep each cue as its own block for simplicity.
+    arr.forEach((c) => {
+      const div = document.createElement("div");
+      div.className = "line";
+      div.textContent = c.text;
+      lyrics.appendChild(div);
     });
-    lyrics.appendChild(div);
-  });
+  } else {
+    // Live mode: timestamps + tap-to-seek + active highlight.
+    arr.forEach((c) => {
+      const div = document.createElement("div");
+      div.className = "line";
+      div.innerHTML = `<span class="t">${fmtTime(c.t)}</span>${escapeHtml(c.text)}`;
+      div.addEventListener("click", () => {
+        audio.currentTime = Math.max(0, c.t + 0.01);
+      });
+      lyrics.appendChild(div);
+    });
+  }
 
   if (textMode === "live") updateActiveLine(true);
 }
@@ -431,10 +456,13 @@ lockBtn.addEventListener("click", () => {
 
 playBtn.addEventListener("click", async () => {
   try{
+    // If the browser hasn't finished loading metadata yet, try anyway.
+    if (isLoadingTrack) setStatus("Loading…");
+
     if (audio.paused) await audio.play();
     else audio.pause();
   }catch{
-    miniStatus.textContent = "Tap once, then press play.";
+    setStatus("Tap once, then press play.");
   }
 });
 
@@ -455,24 +483,39 @@ rateBtn.addEventListener("click", () => setRate());
 
 audio.addEventListener("loadedmetadata", () => {
   durTime.textContent = fmtTime(audio.duration);
-  miniStatus.textContent = "Ready";
+  isLoadingTrack = false;
+  setStatus("Ready");
+});
+
+audio.addEventListener("canplay", () => {
+  // This fires earlier than loadedmetadata in some browsers; keep it resilient.
+  isLoadingTrack = false;
+  if (audio.paused) setStatus("Ready");
+});
+
+audio.addEventListener("error", () => {
+  isLoadingTrack = false;
+  setPlayIcon(false);
+  cancelRaf();
+  // This usually means a bad path / missing mp3.
+  setStatus("Audio missing (check assets path)");
 });
 
 audio.addEventListener("play", () => {
   setPlayIcon(true);
-  miniStatus.textContent = "Playing";
+  setStatus("Playing");
   startRaf();
 });
 
 audio.addEventListener("pause", () => {
   setPlayIcon(false);
-  miniStatus.textContent = "Paused";
+  setStatus("Paused");
   cancelRaf();
 });
 
 audio.addEventListener("ended", () => {
   setPlayIcon(false);
-  miniStatus.textContent = "Finished";
+  setStatus("Finished");
   cancelRaf();
 });
 
@@ -491,6 +534,8 @@ audio.addEventListener("timeupdate", () => {
 /* Seek interactions */
 seek.addEventListener("pointerdown", () => { isSeeking = true; });
 seek.addEventListener("pointerup", () => { isSeeking = false; });
+seek.addEventListener("pointercancel", () => { isSeeking = false; });
+seek.addEventListener("pointerleave", () => { isSeeking = false; });
 seek.addEventListener("input", () => {
   if (!isFinite(audio.duration) || audio.duration <= 0) return;
   const p = Number(seek.value) / 1000;
