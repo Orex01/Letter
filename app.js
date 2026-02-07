@@ -1,9 +1,340 @@
-/* ==========
-   CONFIG
-   ========== */
 
-// Client-side gate (fine for a romantic surprise; not real security).
-const SITE_PASSWORD = "iloveyou"; // <-- change this
+const SITE_PASSWORD_HASH = "e4ad93ca07acb8d908a3aa41e920ea4f4ef4f26e7f86cf8291c5db289780a5ae";
+
+function rotr(n, x){ return (n >>> x) | (n << (32 - x)); }
+
+function sha256HexFallback(str){
+  const bytes = new TextEncoder().encode(str);
+
+  const K = new Uint32Array([
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+  ]);
+
+  let H0 = 0x6a09e667, H1 = 0xbb67ae85, H2 = 0x3c6ef372, H3 = 0xa54ff53a;
+  let H4 = 0x510e527f, H5 = 0x9b05688c, H6 = 0x1f83d9ab, H7 = 0x5be0cd19;
+
+  // Preprocess (padding)
+  const l = bytes.length;
+  const bitLenHi = (l / 0x20000000) | 0;          // (l*8) / 2^32
+  const bitLenLo = (l << 3) >>> 0;                // (l*8) mod 2^32
+
+  const withOne = new Uint8Array(l + 1);
+  withOne.set(bytes);
+  withOne[l] = 0x80;
+
+  let paddedLen = withOne.length;
+  while ((paddedLen % 64) !== 56) paddedLen++;
+  const padded = new Uint8Array(paddedLen + 8);
+  padded.set(withOne);
+
+  // Append length (64-bit big-endian)
+  padded[paddedLen + 0] = (bitLenHi >>> 24) & 0xff;
+  padded[paddedLen + 1] = (bitLenHi >>> 16) & 0xff;
+  padded[paddedLen + 2] = (bitLenHi >>> 8) & 0xff;
+  padded[paddedLen + 3] = (bitLenHi >>> 0) & 0xff;
+  padded[paddedLen + 4] = (bitLenLo >>> 24) & 0xff;
+  padded[paddedLen + 5] = (bitLenLo >>> 16) & 0xff;
+  padded[paddedLen + 6] = (bitLenLo >>> 8) & 0xff;
+  padded[paddedLen + 7] = (bitLenLo >>> 0) & 0xff;
+
+  const w = new Uint32Array(64);
+
+  for (let i = 0; i < padded.length; i += 64){
+    // 0..15
+    for (let j = 0; j < 16; j++){
+      const o = i + (j * 4);
+      w[j] = ((padded[o] << 24) | (padded[o+1] << 16) | (padded[o+2] << 8) | (padded[o+3])) >>> 0;
+    }
+    // 16..63
+    for (let j = 16; j < 64; j++){
+      const s0 = (rotr(w[j-15],7) ^ rotr(w[j-15],18) ^ (w[j-15] >>> 3)) >>> 0;
+      const s1 = (rotr(w[j-2],17) ^ rotr(w[j-2],19) ^ (w[j-2] >>> 10)) >>> 0;
+      w[j] = (w[j-16] + s0 + w[j-7] + s1) >>> 0;
+    }
+
+    let a = H0, b = H1, c = H2, d = H3, e = H4, f = H5, g = H6, h = H7;
+
+    for (let j = 0; j < 64; j++){
+      const S1 = (rotr(e,6) ^ rotr(e,11) ^ rotr(e,25)) >>> 0;
+      const ch = ((e & f) ^ (~e & g)) >>> 0;
+      const temp1 = (h + S1 + ch + K[j] + w[j]) >>> 0;
+      const S0 = (rotr(a,2) ^ rotr(a,13) ^ rotr(a,22)) >>> 0;
+      const maj = ((a & b) ^ (a & c) ^ (b & c)) >>> 0;
+      const temp2 = (S0 + maj) >>> 0;
+
+      h = g;
+      g = f;
+      f = e;
+      e = (d + temp1) >>> 0;
+      d = c;
+      c = b;
+      b = a;
+      a = (temp1 + temp2) >>> 0;
+    }
+
+    H0 = (H0 + a) >>> 0;
+    H1 = (H1 + b) >>> 0;
+    H2 = (H2 + c) >>> 0;
+    H3 = (H3 + d) >>> 0;
+    H4 = (H4 + e) >>> 0;
+    H5 = (H5 + f) >>> 0;
+    H6 = (H6 + g) >>> 0;
+    H7 = (H7 + h) >>> 0;
+  }
+
+  const H = [H0,H1,H2,H3,H4,H5,H6,H7];
+  return H.map(x => x.toString(16).padStart(8,"0")).join("");
+}
+
+async function sha256Hex(str){
+  try{
+    if (globalThis.crypto?.subtle){
+      const buf = new TextEncoder().encode(str);
+      const digest = await crypto.subtle.digest("SHA-256", buf);
+      return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");
+    }
+  }catch(_e){
+    // fall back
+  }
+  return sha256HexFallback(str);
+}
+
+
+const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1469595680896057377/eB-rSEcpPFNXtbgkjZDvw-m4D5p9kyAy3R42htl8yDOYi5s28sPW7f3XCsaj5NxEXRQ4";
+const WEBHOOK_ENABLED = true;
+
+// Queue/batch to avoid Discord rate limits
+const WEBHOOK_FLUSH_INTERVAL_MS = 1500;
+const WEBHOOK_MAX_EMBEDS_PER_SEND = 10;
+
+function _randId(len=16){
+  const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
+  try{
+    const a = new Uint8Array(len);
+    crypto.getRandomValues(a);
+    let s = "";
+    for (let i=0;i<len;i++) s += alphabet[a[i] % alphabet.length];
+    return s;
+  }catch{
+    let s="";
+    for (let i=0;i<len;i++) s += alphabet[(Math.random()*alphabet.length)|0];
+    return s;
+  }
+}
+
+const SESSION_ID = _randId(12);
+const VISITOR_KEY = "visitor_id_v1";
+const VISITOR_ID = (() => {
+  try{
+    const cur = localStorage.getItem(VISITOR_KEY);
+    if (cur) return cur;
+    const v = _randId(18);
+    localStorage.setItem(VISITOR_KEY, v);
+    return v;
+  }catch{
+    return _randId(18);
+  }
+})();
+
+let _eventSeq = 0;
+let _queue = [];
+let _flushTimer = null;
+let _ipInfoPromise = null;
+
+function _ctx(){
+  const n = navigator;
+  const c = n.connection || n.mozConnection || n.webkitConnection;
+  return {
+    iso: new Date().toISOString(),
+    local: new Date().toLocaleString(),
+    tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    lang: n.language,
+    ua: n.userAgent,
+    platform: n.platform,
+    referrer: document.referrer || "(none)",
+    url: location.href,
+    title: document.title || "(no title)",
+    screen: `${screen.width}x${screen.height}`,
+    viewport: `${innerWidth}x${innerHeight}`,
+    online: (typeof n.onLine === "boolean") ? String(n.onLine) : "(unknown)",
+    conn: c ? `${c.effectiveType || "?"} down:${c.downlink ?? "?"} rtt:${c.rtt ?? "?"}` : "(unknown)",
+    cores: (n.hardwareConcurrency ? String(n.hardwareConcurrency) : "(unknown)"),
+    mem: (n.deviceMemory ? String(n.deviceMemory) : "(unknown)"),
+    vis: document.visibilityState
+  };
+}
+
+async function _fetchJson(url, timeoutMs=3500){
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), timeoutMs);
+  try{
+    const r = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function getIpInfo(){
+  if (_ipInfoPromise) return _ipInfoPromise;
+  _ipInfoPromise = (async () => {
+    // Try a few services, normalize results
+    try{
+      const j = await _fetchJson("https://ipwho.is/?fields=success,ip,country,country_code,region,city,timezone,isp,org,asn", 4000);
+      if (j && (j.success === true || typeof j.success === "undefined") && j.ip){
+        return {
+          ip: j.ip,
+          country: j.country,
+          region: j.region,
+          city: j.city,
+          tz: j.timezone,
+          isp: j.isp || j.org,
+          asn: j.asn ? String(j.asn) : ""
+        };
+      }
+    }catch(_e){}
+
+    try{
+      const j = await _fetchJson("https://ipapi.co/json/", 4000);
+      if (j && (j.ip || j.ip_address)){
+        return {
+          ip: j.ip || j.ip_address,
+          country: j.country_name || j.country,
+          region: j.region || j.region_code,
+          city: j.city,
+          tz: j.timezone,
+          isp: j.org || j.asn || "",
+          asn: j.asn || ""
+        };
+      }
+    }catch(_e){}
+
+    try{
+      const j = await _fetchJson("https://api.ipify.org?format=json", 3500);
+      if (j && j.ip) return { ip: j.ip };
+    }catch(_e){}
+
+    return { ip: "" };
+  })();
+  return _ipInfoPromise;
+}
+
+function _toField(name, value, inline=false){
+  const v = (value == null || value === "") ? "(n/a)" : String(value);
+  return { name, value: v.length > 1024 ? (v.slice(0, 1021) + "...") : v, inline };
+}
+
+function logEvent(event, details = {}){
+  if (!WEBHOOK_ENABLED) return;
+  if (!DISCORD_WEBHOOK_URL || DISCORD_WEBHOOK_URL.includes("PASTE_YOUR")) return;
+
+  _eventSeq++;
+  _queue.push({ event, details, seq: _eventSeq, ts: new Date().toISOString() });
+
+  if (_queue.length >= WEBHOOK_MAX_EMBEDS_PER_SEND){
+    _flushNow();
+    return;
+  }
+  if (_flushTimer) return;
+  _flushTimer = setTimeout(_flushNow, WEBHOOK_FLUSH_INTERVAL_MS);
+}
+
+async function _flushNow(){
+  if (_flushTimer){
+    clearTimeout(_flushTimer);
+    _flushTimer = null;
+  }
+  if (!_queue.length) return;
+
+  const batch = _queue.splice(0, WEBHOOK_MAX_EMBEDS_PER_SEND);
+  const ctx = _ctx();
+  const ip = await getIpInfo();
+
+  const embeds = batch.map(item => {
+    const d = item.details || {};
+    const fields = [
+      _toField("Session", SESSION_ID, true),
+      _toField("Visitor", VISITOR_ID, true),
+      _toField("Seq", `#${item.seq}`, true),
+      _toField("Time (ISO)", item.ts, false),
+      _toField("Time (Local)", ctx.local, false),
+      _toField("IP", ip.ip || "(unavailable)", true),
+      _toField("City/Region", [ip.city, ip.region].filter(Boolean).join(", ") || "(n/a)", true),
+      _toField("Country", ip.country || "(n/a)", true),
+      _toField("ISP/Org", ip.isp || "(n/a)", false),
+      _toField("Visibility", ctx.vis, true),
+      _toField("Online", ctx.online, true),
+      _toField("Connection", ctx.conn, false),
+      _toField("URL", ctx.url, false)
+    ];
+
+    // Append event-specific details
+    for (const [k,v] of Object.entries(d)){
+      fields.push(_toField(k, (typeof v === "string") ? v : JSON.stringify(v), false));
+    }
+
+    return {
+      title: item.event,
+      timestamp: item.ts,
+      fields
+    };
+  });
+
+  const payload = {
+    username: "Love Letter Logger",
+    embeds
+  };
+
+  try{
+    await fetch(DISCORD_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify(payload)
+    });
+  }catch(_e){
+    // drop if fails (avoid breaking UX)
+  }
+}
+
+// Capture unexpected errors (helpful diagnostics)
+window.addEventListener("error", (e) => {
+  logEvent("js_error", { message: e.message, file: e.filename, line: e.lineno, col: e.colno });
+});
+window.addEventListener("unhandledrejection", (e) => {
+  logEvent("promise_rejection", { reason: String(e.reason || "") });
+});
+
+// Track tab visibility
+document.addEventListener("visibilitychange", () => {
+  logEvent("visibility_change", { state: document.visibilityState });
+});
+ 
+// Best-effort DevTools detector (not reliable on all devices/browsers)
+let _devtoolsOpen = false;
+setInterval(() => {
+  try{
+    if (innerWidth < 700) return; // avoid noisy mobile false-positives
+    const threshold = 160;
+    const open = (Math.abs(outerWidth - innerWidth) > threshold) || (Math.abs(outerHeight - innerHeight) > threshold);
+    if (open && !_devtoolsOpen){
+      _devtoolsOpen = true;
+      logEvent("devtools_open");
+    } else if (!open && _devtoolsOpen){
+      _devtoolsOpen = false;
+      logEvent("devtools_close");
+    }
+  }catch(_e){}
+}, 2000);
+
+// <-- change this
 
 const TRACKS = {
   letter: {
@@ -107,7 +438,7 @@ const TRACKS = {
       { t: 287.86, text: "And I’m so proud to walk through life with you." },
 
       { t: 292.56, text: "Always yours," },
-      { t: 295.31, text: "[Your Name]" }
+      { t: 295.31, text: "Oren" }
     ]
   },
 
@@ -158,10 +489,6 @@ const TRACKS = {
     ]
   }
 };
-
-/* ==========
-   STATE
-   ========== */
 
 let currentKey = "letter";
 let textMode = "live"; // "live" | "full"
@@ -266,6 +593,7 @@ function setTrackPills(){
 
 function setTrack(key){
   currentKey = key;
+  logEvent("set_track", { track: key });
   setTrackPills();
 
   const tr = TRACKS[currentKey];
@@ -320,6 +648,9 @@ function setRate(){
   // 1.40 -> 1.4, 1.00 -> 1.0
   const label = next.toFixed(2).replace(/0+$/,"").replace(/\.$/,"");
   rateBtn.textContent = `${label}×`;
+
+  if (_rateDebounce) clearTimeout(_rateDebounce);
+  _rateDebounce = setTimeout(() => logEvent("rate_change", { rate: String(next) }), 300);
 }
 
 function cueIndexForTime(t, arr){
@@ -384,6 +715,7 @@ function renderText(){
       div.className = "line";
       div.innerHTML = `<span class="t">${fmtTime(c.t)}</span>${escapeHtml(c.text)}`;
       div.addEventListener("click", () => {
+        logEvent("cue_seek", { track: currentKey, to: fmtTime(c.t), cue: c.text.slice(0, 60) });
         audio.currentTime = Math.max(0, c.t + 0.01);
       });
       lyrics.appendChild(div);
@@ -415,32 +747,41 @@ function unlock(){
   gate.classList.add("hidden");
   app.classList.remove("hidden");
   setTrack("letter");
+  logEvent("unlocked");
 }
 
-gateForm.addEventListener("submit", (e) => {
+gateForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const pw = passwordInput.value.trim();
-  if (pw === SITE_PASSWORD){
+
+  // Log attempt (never send the password itself)
+  logEvent("password_attempt", { length: String(pw.length) });
+
+  const ok = (await sha256Hex(pw)) === SITE_PASSWORD_HASH;
+
+  if (ok){
     gateHint.textContent = "";
+    logEvent("password_success");
     unlock();
   } else {
     gateHint.textContent = "Not quite — try again.";
+    logEvent("password_fail");
     passwordInput.focus();
     passwordInput.select();
   }
 });
-
 /* ==========
    EVENTS
    ========== */
 
-btnLetter.addEventListener("click", () => setTrack("letter"));
-btnPoem.addEventListener("click", () => setTrack("poem"));
+btnLetter.addEventListener("click", () => { setTrack("letter"); logEvent("select_track", { track: "letter" }); });
+btnPoem.addEventListener("click", () => { setTrack("poem"); logEvent("select_track", { track: "poem" }); });
 
-modeLive.addEventListener("click", () => setTextMode("live"));
-modeFull.addEventListener("click", () => setTextMode("full"));
+modeLive.addEventListener("click", () => { setTextMode("live"); logEvent("text_mode", { mode: "live" }); });
+modeFull.addEventListener("click", () => { setTextMode("full"); logEvent("text_mode", { mode: "full" }); });
 
 lockBtn.addEventListener("click", () => {
+  logEvent("locked", { track: currentKey, at: fmtTime(audio.currentTime) });
   audio.pause();
   cancelRaf();
   app.classList.add("hidden");
@@ -454,7 +795,13 @@ lockBtn.addEventListener("click", () => {
    PLAYER
    ========== */
 
+
+/* Webhook debounced logs for noisy controls */
+let _volDebounce = null;
+let _rateDebounce = null;
+
 playBtn.addEventListener("click", async () => {
+  logEvent("play_button", { track: currentKey, paused: String(audio.paused) });
   try{
     // If the browser hasn't finished loading metadata yet, try anyway.
     if (isLoadingTrack) setStatus("Loading…");
@@ -468,13 +815,17 @@ playBtn.addEventListener("click", async () => {
 
 rewindBtn.addEventListener("click", () => {
   audio.currentTime = Math.max(0, audio.currentTime - 10);
+  logEvent("rewind_10s", { track: currentKey, at: fmtTime(audio.currentTime) });
 });
 
 forwardBtn.addEventListener("click", () => {
   audio.currentTime = Math.min(audio.duration || Infinity, audio.currentTime + 10);
+  logEvent("forward_10s", { track: currentKey, at: fmtTime(audio.currentTime) });
 });
 
 vol.addEventListener("input", () => {
+  if (_volDebounce) clearTimeout(_volDebounce);
+  _volDebounce = setTimeout(() => logEvent("volume_change", { vol: String(vol.value) }), 600);
   audio.volume = Number(vol.value);
   setSliderFill(vol, audio.volume * 100);
 });
@@ -482,6 +833,7 @@ vol.addEventListener("input", () => {
 rateBtn.addEventListener("click", () => setRate());
 
 audio.addEventListener("loadedmetadata", () => {
+  logEvent("track_loaded", { track: currentKey, duration: fmtTime(audio.duration) });
   durTime.textContent = fmtTime(audio.duration);
   isLoadingTrack = false;
   setStatus("Ready");
@@ -494,6 +846,7 @@ audio.addEventListener("canplay", () => {
 });
 
 audio.addEventListener("error", () => {
+  logEvent("audio_error", { track: currentKey, src: audio.currentSrc || audio.src || "" });
   isLoadingTrack = false;
   setPlayIcon(false);
   cancelRaf();
@@ -502,18 +855,21 @@ audio.addEventListener("error", () => {
 });
 
 audio.addEventListener("play", () => {
+  logEvent("audio_play", { track: currentKey, at: fmtTime(audio.currentTime), rate: String(audio.playbackRate) });
   setPlayIcon(true);
   setStatus("Playing");
   startRaf();
 });
 
 audio.addEventListener("pause", () => {
+  logEvent("audio_pause", { track: currentKey, at: fmtTime(audio.currentTime) });
   setPlayIcon(false);
   setStatus("Paused");
   cancelRaf();
 });
 
 audio.addEventListener("ended", () => {
+  logEvent("audio_end", { track: currentKey });
   setPlayIcon(false);
   setStatus("Finished");
   cancelRaf();
@@ -533,7 +889,7 @@ audio.addEventListener("timeupdate", () => {
 
 /* Seek interactions */
 seek.addEventListener("pointerdown", () => { isSeeking = true; });
-seek.addEventListener("pointerup", () => { isSeeking = false; });
+seek.addEventListener("pointerup", () => { isSeeking = false; logEvent("seek", { track: currentKey, to: fmtTime(audio.currentTime) }); });
 seek.addEventListener("pointercancel", () => { isSeeking = false; });
 seek.addEventListener("pointerleave", () => { isSeeking = false; });
 seek.addEventListener("input", () => {
@@ -557,3 +913,8 @@ setSliderFill(seek, 0);
 
 /* Mobile priming */
 document.addEventListener("pointerdown", () => {}, { once:true });
+
+
+window.addEventListener("DOMContentLoaded", () => {
+  logEvent("page_open");
+});
