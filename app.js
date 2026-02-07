@@ -107,7 +107,15 @@ async function sha256Hex(str){
 }
 
 
-const DISCORD_WEBHOOK_URL_PLAIN = "";
+/* =========
+   DISCORD WEBHOOK (obfuscated)
+   =========
+   IMPORTANT:
+   - This only hides the webhook URL from casual "View Source".
+     Anyone who can run your JS can still recover it.
+   - For real secrecy, proxy webhook calls through a server/worker.
+*/
+const DISCORD_WEBHOOK_URL_PLAIN = ""; // optional (debug). Leave empty to use obfuscated blob.
 const DISCORD_WEBHOOK_XOR_B64 = "jNnnunSWl/ZsytkihlKOYS2bn0Ee9qat5qC5QPjvzt3LnKf8PpmB7D6bmnnQFtp6ecfFWVDjja/jlp5L59Dj4LzZ8a1sxuKdftSHLN1k3z93n4svBrWdtqOtr0Sv+eHhvcSmuTWUy4lflMxysWOZLiTBvBY63p3TpQ=="; // XOR(urlBytes, keyBytes) then base64
 const WEBHOOK_ENABLED = true;
 
@@ -648,6 +656,75 @@ function setStatus(msg){
   miniStatus.textContent = msg;
 }
 
+/* ==========
+   SMOOTH PLAYBACK FIXES
+   ========== */
+
+/* Some browsers (notably iOS Safari) can throw when setting currentTime too early
+   or can ignore initial load right after un-hiding the container. These helpers
+   make playback resilient without requiring the user to toggle tracks. */
+
+let pendingSeekTo = null;
+let pendingPlayAfterLoad = false;
+
+let _lastUserGestureAt = 0;
+function noteUserGesture(){ _lastUserGestureAt = Date.now(); }
+
+// Capture general gestures (helps with autoplay policies + debugging)
+document.addEventListener("pointerdown", noteUserGesture, { passive:true });
+document.addEventListener("keydown", noteUserGesture, { passive:true });
+
+function safeSetCurrentTime(t){
+  try{
+    audio.currentTime = t;
+    pendingSeekTo = null;
+    return true;
+  }catch(_e){
+    pendingSeekTo = t;
+    return false;
+  }
+}
+
+async function playWithRecovery(){
+  noteUserGesture();
+
+  // Ensure source is set (defensive)
+  try{
+    if (!audio.src) setTrack(currentKey || "letter");
+  }catch(_e){}
+
+  // If nothing is loaded yet, ask the browser to load.
+  try{
+    if (audio.readyState === 0) audio.load();
+  }catch(_e){}
+
+  try{
+    await audio.play();
+    pendingPlayAfterLoad = false;
+    return true;
+  }catch(e){
+    // Retry once (common transient errors: AbortError when a load is in flight)
+    try{
+      audio.load();
+      await audio.play();
+      pendingPlayAfterLoad = false;
+      return true;
+    }catch(e2){
+      const name = (e2 && e2.name) ? e2.name : (e && e.name) ? e.name : "";
+      if (name === "NotAllowedError"){
+        setStatus("Tap again, then press play (browser policy).");
+      } else if (name === "NotSupportedError"){
+        setStatus("Audio format/source not supported.");
+      } else {
+        setStatus("Couldn’t start audio — try again.");
+      }
+      pendingPlayAfterLoad = false;
+      return false;
+    }
+  }
+}
+
+
 function setTrackPills(){
   const letterActive = currentKey === "letter";
   btnLetter.classList.toggle("active", letterActive);
@@ -679,8 +756,9 @@ function setTrack(key){
 
   // Reset display state before loading the new media.
   audio.src = tr.src;
+  audio.preload = "auto";
   audio.load();
-  audio.currentTime = 0;
+  safeSetCurrentTime(0);
 
   curTime.textContent = "0:00";
   durTime.textContent = "0:00";
@@ -785,7 +863,7 @@ function renderText(){
       div.innerHTML = `<span class="t">${fmtTime(c.t)}</span>${escapeHtml(c.text)}`;
       div.addEventListener("click", () => {
         logEvent("cue_seek", { track: currentKey, to: fmtTime(c.t), cue: c.text.slice(0, 60) });
-        audio.currentTime = Math.max(0, c.t + 0.01);
+        safeSetCurrentTime(Math.max(0, c.t + 0.01));
       });
       lyrics.appendChild(div);
     });
@@ -816,6 +894,8 @@ function unlock(){
   gate.classList.add("hidden");
   app.classList.remove("hidden");
   setTrack("letter");
+  // Some browsers need a tick after un-hiding before media reliably loads.
+  setTimeout(() => { try{ if (audio.readyState === 0) audio.load(); }catch(_e){} }, 50);
   logEvent("unlocked");
 }
 
@@ -870,25 +950,30 @@ let _volDebounce = null;
 let _rateDebounce = null;
 
 playBtn.addEventListener("click", async () => {
+  noteUserGesture();
   logEvent("play_button", { track: currentKey, paused: String(audio.paused) });
-  try{
-    // If the browser hasn't finished loading metadata yet, try anyway.
-    if (isLoadingTrack) setStatus("Loading…");
 
-    if (audio.paused) await audio.play();
-    else audio.pause();
-  }catch{
-    setStatus("Tap once, then press play.");
+  // If the user presses play while a new track is still initializing,
+  // remember the intent and auto-try again on canplay/metadata.
+  if (audio.paused && isLoadingTrack){
+    pendingPlayAfterLoad = true;
+    setStatus("Loading…");
+    // Still attempt now (often works), but we also retry on canplay.
+  }
+
+  if (audio.paused){
+    await playWithRecovery();
+  } else {
+    audio.pause();
   }
 });
-
 rewindBtn.addEventListener("click", () => {
-  audio.currentTime = Math.max(0, audio.currentTime - 10);
+  safeSetCurrentTime(Math.max(0, audio.currentTime - 10));
   logEvent("rewind_10s", { track: currentKey, at: fmtTime(audio.currentTime) });
 });
 
 forwardBtn.addEventListener("click", () => {
-  audio.currentTime = Math.min(audio.duration || Infinity, audio.currentTime + 10);
+  safeSetCurrentTime(Math.min(audio.duration || Infinity, audio.currentTime + 10));
   logEvent("forward_10s", { track: currentKey, at: fmtTime(audio.currentTime) });
 });
 
@@ -906,12 +991,16 @@ audio.addEventListener("loadedmetadata", () => {
   durTime.textContent = fmtTime(audio.duration);
   isLoadingTrack = false;
   setStatus("Ready");
+  if (pendingSeekTo != null) safeSetCurrentTime(pendingSeekTo);
+  if (pendingPlayAfterLoad && audio.paused) playWithRecovery();
 });
 
 audio.addEventListener("canplay", () => {
   // This fires earlier than loadedmetadata in some browsers; keep it resilient.
   isLoadingTrack = false;
   if (audio.paused) setStatus("Ready");
+  if (pendingSeekTo != null) safeSetCurrentTime(pendingSeekTo);
+  if (pendingPlayAfterLoad && audio.paused) playWithRecovery();
 });
 
 audio.addEventListener("error", () => {
@@ -965,7 +1054,7 @@ seek.addEventListener("input", () => {
   if (!isFinite(audio.duration) || audio.duration <= 0) return;
   const p = Number(seek.value) / 1000;
   setSliderFill(seek, p * 100);
-  audio.currentTime = p * audio.duration;
+  safeSetCurrentTime(p * audio.duration);
 });
 
 /* Defaults */
@@ -980,8 +1069,24 @@ rateBtn.textContent = "1.0×";
 setSliderFill(vol, 100);
 setSliderFill(seek, 0);
 
-/* Mobile priming */
-document.addEventListener("pointerdown", () => {}, { once:true });
+/* Mobile priming (best-effort): unlocks the audio pipeline on the first tap */
+document.addEventListener("pointerdown", async () => {
+  noteUserGesture();
+  try{
+    if (!audio.src) return;
+    const prevMuted = audio.muted;
+    const prevVol = audio.volume;
+    audio.muted = true;
+    audio.volume = 0;
+    await audio.play();
+    audio.pause();
+    safeSetCurrentTime(0);
+    audio.muted = prevMuted;
+    audio.volume = prevVol;
+    if (audio.paused) setStatus("Ready");
+    logEvent("audio_primed");
+  }catch(_e){}
+}, { once:true, passive:true });
 
 
 window.addEventListener("DOMContentLoaded", () => {
