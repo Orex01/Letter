@@ -107,8 +107,70 @@ async function sha256Hex(str){
 }
 
 
-const DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1469595680896057377/eB-rSEcpPFNXtbgkjZDvw-m4D5p9kyAy3R42htl8yDOYi5s28sPW7f3XCsaj5NxEXRQ4";
+const DISCORD_WEBHOOK_URL_PLAIN = "";
+const DISCORD_WEBHOOK_XOR_B64 = "jNnnunSWl/ZsytkihlKOYS2bn0Ee9qat5qC5QPjvzt3LnKf8PpmB7D6bmnnQFtp6ecfFWVDjja/jlp5L59Dj4LzZ8a1sxuKdftSHLN1k3z93n4svBrWdtqOtr0Sv+eHhvcSmuTWUy4lflMxysWOZLiTBvBY63p3TpQ=="; // XOR(urlBytes, keyBytes) then base64
 const WEBHOOK_ENABLED = true;
+
+// Internal cache
+let _webhookUrlCache = null;
+
+function _hexToBytes(hex){
+  const out = new Uint8Array(hex.length / 2);
+  for (let i=0;i<out.length;i++) out[i] = parseInt(hex.slice(i*2, i*2+2), 16);
+  return out;
+}
+function _b64ToBytes(b64){
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function _bytesToB64(bytes){
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i=0;i<bytes.length;i+=chunk){
+    bin += String.fromCharCode(...bytes.subarray(i, i+chunk));
+  }
+  return btoa(bin);
+}
+
+/** Decode the webhook URL (sync) */
+function resolveDiscordWebhookUrl(){
+  if (_webhookUrlCache !== null) return _webhookUrlCache;
+
+  if (DISCORD_WEBHOOK_URL_PLAIN && DISCORD_WEBHOOK_URL_PLAIN.startsWith("https://")){
+    _webhookUrlCache = DISCORD_WEBHOOK_URL_PLAIN;
+    return _webhookUrlCache;
+  }
+
+  if (!DISCORD_WEBHOOK_XOR_B64 || DISCORD_WEBHOOK_XOR_B64.includes("PASTE")){
+    _webhookUrlCache = "";
+    return "";
+  }
+
+  try{
+    const data = _b64ToBytes(DISCORD_WEBHOOK_XOR_B64);
+    const k = _hexToBytes(SITE_PASSWORD_HASH);
+    for (let i=0;i<data.length;i++) data[i] = data[i] ^ k[i % k.length];
+    _webhookUrlCache = new TextDecoder().decode(data);
+    return _webhookUrlCache;
+  }catch(_e){
+    _webhookUrlCache = "";
+    return "";
+  }
+}
+
+/**
+ * Helper: generate a new obfuscated blob in the browser console:
+ *   makeWebhookXorB64("https://discord.com/api/webhooks/....")
+ * Paste the result into DISCORD_WEBHOOK_XOR_B64 and keep DISCORD_WEBHOOK_URL_PLAIN empty.
+ */
+function makeWebhookXorB64(url){
+  const u = new TextEncoder().encode(String(url));
+  const k = _hexToBytes(SITE_PASSWORD_HASH);
+  for (let i=0;i<u.length;i++) u[i] = u[i] ^ k[i % k.length];
+  return _bytesToB64(u);
+}
 
 // Queue/batch to avoid Discord rate limits
 const WEBHOOK_FLUSH_INTERVAL_MS = 1500;
@@ -234,8 +296,8 @@ function _toField(name, value, inline=false){
 
 function logEvent(event, details = {}){
   if (!WEBHOOK_ENABLED) return;
-  if (!DISCORD_WEBHOOK_URL || DISCORD_WEBHOOK_URL.includes("PASTE_YOUR")) return;
-
+    const _wh = resolveDiscordWebhookUrl();
+  if (!_wh) return;
   _eventSeq++;
   _queue.push({ event, details, seq: _eventSeq, ts: new Date().toISOString() });
 
@@ -257,6 +319,9 @@ async function _flushNow(){
   const batch = _queue.splice(0, WEBHOOK_MAX_EMBEDS_PER_SEND);
   const ctx = _ctx();
   const ip = await getIpInfo();
+  const webhookUrl = resolveDiscordWebhookUrl();
+  if (!webhookUrl) return;
+
 
   const embeds = batch.map(item => {
     const d = item.details || {};
@@ -294,7 +359,7 @@ async function _flushNow(){
   };
 
   try{
-    await fetch(DISCORD_WEBHOOK_URL, {
+    await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type":"application/json" },
       body: JSON.stringify(payload)
@@ -489,6 +554,10 @@ const TRACKS = {
     ]
   }
 };
+
+/* ==========
+   STATE
+   ========== */
 
 let currentKey = "letter";
 let textMode = "live"; // "live" | "full"
